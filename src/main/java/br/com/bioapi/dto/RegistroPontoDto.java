@@ -3,51 +3,45 @@ package br.com.bioapi.dto;
 import java.time.LocalDateTime;
 
 import br.com.bioapi.model.RegistroPonto;
-import br.com.bioapi.model.TipoPonto;
 
 public class RegistroPontoDto {
 
-	private TipoPonto tipo;
-	private LocalDateTime hora;
-	
+	private String hora;
+	private Long funcionarioId;
 	
 	public RegistroPontoDto() {
 		// TODO Auto-generated constructor stub
 	}
 
 
-	public RegistroPontoDto(TipoPonto tipo, LocalDateTime hora) {
-		super();
-		this.tipo = tipo;
+	public RegistroPontoDto(String hora, Long funcionarioId) {
 		this.hora = hora;
+		this.funcionarioId = funcionarioId;
 	}
 
 
-	public TipoPonto getTipo() {
-		return tipo;
-	}
-
-
-	public void setTipo(TipoPonto tipo) {
-		this.tipo = tipo;
-	}
-
-
-	public LocalDateTime getHora() {
+	public String getHora() {
 		return hora;
 	}
 
 
-	public void setHora(LocalDateTime hora) {
+	public void setHora(String hora) {
 		this.hora = hora;
+	}
+	
+	public Long getFuncionarioId() {
+		return funcionarioId;
+	}
+	
+	public void setFuncionarioId(Long funcionarioId) {
+		this.funcionarioId = funcionarioId;
 	}
 	
 	public RegistroPonto toEntity() {
 	
 		RegistroPonto registroPonto = new RegistroPonto();
 		
-		registroPonto.setHora(hora);
-		registroPonto.setTipo(tipo);
+		registroPonto.setHora(LocalDateTime.parse(hora));
 		
 		return registroPonto;
 		

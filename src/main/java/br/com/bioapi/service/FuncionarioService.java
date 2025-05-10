@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import br.com.bioapi.dto.FuncionarioDto;
 import br.com.bioapi.model.Funcionario;
 import br.com.bioapi.model.Setor;
+import br.com.bioapi.model.Status;
 import br.com.bioapi.repository.FuncionarioRepository;
 
 @Service
@@ -25,6 +26,7 @@ public class FuncionarioService {
 			Setor setor = setorService.findByIdService(funcionarioDto.getSetorId());
 			
 			funcionario.setSetor(setor);
+			funcionario.setStatus(Status.AUSENTE);
 			Funcionario resp = funcionarioRepository.save(funcionario);
 			return resp;
 		}catch (Exception e) {
@@ -86,6 +88,20 @@ public class FuncionarioService {
 		}catch (Exception e) {
 			throw new Exception("Erro ao buscar funcionário: " + e);
 		}
+	}
+	
+	public Funcionario updateStatusById(Long id, Status status) throws Exception {
+		
+		try {
+			Funcionario funcionario = this.findByIdService(id);
+			
+			funcionario.setStatus(status);
+			
+			return funcionarioRepository.save(funcionario);
+		}catch(Exception e) {
+			throw new Exception("Erro ao atualizar status do funcionario: " + e);
+		}
+		
 	}
 	
 }
