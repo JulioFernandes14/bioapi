@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import br.com.bioapi.dto.RegistroPontoDto;
+import br.com.bioapi.dto.ResumoPontoDto;
 import br.com.bioapi.model.Funcionario;
 import br.com.bioapi.model.RegistroPonto;
 import br.com.bioapi.model.Status;
@@ -118,6 +119,18 @@ public class RegistroPontoService {
 			return registroPonto.get();
 		}catch (Exception e) {
 			throw new Exception("Erro ao buscar registro de ponto: " + e);
+		}
+	}
+	
+	public List<ResumoPontoDto> getResumeByFuncId(int mes, int ano, Long funcionarioId) throws Exception{
+		try {
+			funcionarioService.findByIdService(funcionarioId);
+		
+			return this.registroPontoRepository.buscarResumoPorMesEAno(mes, ano, funcionarioId);
+			
+			
+		}catch (Exception e) {
+			throw new Exception("Erro ao buscar resumo de ponto do funcionário: " + e);
 		}
 	}
 	

@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import br.com.bioapi.dto.RegistroPontoDto;
+import br.com.bioapi.dto.ResumoPontoDto;
+import br.com.bioapi.dto.ResumoPontoRequestDto;
 import br.com.bioapi.model.RegistroPonto;
 import br.com.bioapi.service.RegistroPontoService;
 
@@ -50,6 +52,11 @@ public class RegistroPontoController {
 	@GetMapping("/{id}")
 	public ResponseEntity<RegistroPonto> findByIdController(@PathVariable Long id) throws Exception{
 		return ResponseEntity.ok(registroPontoService.findByIdService(id));
+	}
+	
+	@GetMapping("/resumo")
+	public ResponseEntity<List<ResumoPontoDto>> getResumeByFuncId(@RequestBody ResumoPontoRequestDto resumoPontoRequestDto) throws Exception {
+		return ResponseEntity.ok(registroPontoService.getResumeByFuncId(resumoPontoRequestDto.getMes(), resumoPontoRequestDto.getAno(), resumoPontoRequestDto.getFuncionarioId()));
 	}
 	
 }
