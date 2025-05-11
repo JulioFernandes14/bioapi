@@ -20,6 +20,7 @@ import br.com.bioapi.dto.ResumoPontoRequestDto;
 import br.com.bioapi.model.RegistroPonto;
 import br.com.bioapi.service.RegistroPontoService;
 
+
 @ResponseBody
 @Controller
 @RequestMapping("/bioapi/registro-ponto")
@@ -58,5 +59,11 @@ public class RegistroPontoController {
 	public ResponseEntity<List<ResumoPontoDto>> getResumeByFuncId(@RequestBody ResumoPontoRequestDto resumoPontoRequestDto) throws Exception {
 		return ResponseEntity.ok(registroPontoService.getResumeByFuncId(resumoPontoRequestDto.getMes(), resumoPontoRequestDto.getAno(), resumoPontoRequestDto.getFuncionarioId()));
 	}
+	
+	@GetMapping("saldo-horas") 
+	public ResponseEntity<String> getSaldoMensalByFuncId(@RequestBody ResumoPontoRequestDto resumoPontoRequestDto) throws Exception {
+		return ResponseEntity.ok(registroPontoService.getSaldoMensalByFuncId(resumoPontoRequestDto.getMes(), resumoPontoRequestDto.getAno(), resumoPontoRequestDto.getFuncionarioId()));
+	}
+	
 	
 }
