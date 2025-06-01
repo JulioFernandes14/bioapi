@@ -104,4 +104,12 @@ public class FuncionarioService {
 		
 	}
 	
+	public Long countAtivosService() throws Exception {
+		try {
+			return funcionarioRepository.countByStatusIn(Status.SERVICO_INICIO, Status.PAUSA, Status.SERVICO_TERMINO);
+		} catch(Exception e) {
+			throw new Exception("Erro ao contar funcionários ativos: " + e);
+		}
+	}
+	
 }

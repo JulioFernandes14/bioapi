@@ -52,4 +52,9 @@ public class FuncionarioController {
 		return ResponseEntity.ok(funcionarioService.findByIdService(id));
 	}
 	
+	@GetMapping("/ativos")
+	public ResponseEntity<Long> countAtivosController() throws Exception {
+		return ResponseEntity.ok(funcionarioService.countAtivosService());
+	}
+	
 }
