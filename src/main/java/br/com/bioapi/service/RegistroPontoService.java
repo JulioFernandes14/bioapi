@@ -163,6 +163,45 @@ public class RegistroPontoService {
 		
 	}
 	
+	public String getMediaHorasSemanaAtual() throws Exception {
+		try {
+			List<ResumoPontoDto> listaPontos = registroPontoRepository.buscarResumoDaSemanaAtual();
+			Integer totalFuncionarios = funcionarioService.findAllService().size();
+			
+			if (listaPontos.isEmpty() || totalFuncionarios == 0) {
+				return "00:00:00";
+			}
+			
+			Duration totalHoras = Duration.ZERO;
+			int totalDias = 0;
+			
+			for (ResumoPontoDto resumoPonto: listaPontos) {
+				DayOfWeek diaSemana = resumoPonto.getData().getDayOfWeek();
+				if (diaSemana == DayOfWeek.MONDAY) continue;
+				
+				if (resumoPonto.getHorasTrabalhadas() != null && !resumoPonto.getHorasTrabalhadas().isEmpty()) {
+					LocalTime horasTrabalhadas = LocalTime.parse(resumoPonto.getHorasTrabalhadas());
+					Duration duracaoTrabalhada = Duration.ofHours(horasTrabalhadas.getHour())
+														.plusMinutes(horasTrabalhadas.getMinute())
+														.plusSeconds(horasTrabalhadas.getSecond());
+					
+					totalHoras = totalHoras.plus(duracaoTrabalhada);
+					totalDias++;
+				}
+			}
+			
+			if (totalDias == 0) {
+				return "00:00:00";
+			}
+			
+			Duration mediaHoras = totalHoras.dividedBy(totalDias).dividedBy(totalFuncionarios);
+			return formatarDuration(mediaHoras);
+			
+		} catch (Exception e) {
+			throw new Exception("Erro ao calcular média de horas da semana: " + e);
+		}
+	}
+	
 	private String formatarDuration(Duration duration) {
         long segundosTotais = duration.getSeconds();
         boolean negativo = segundosTotais < 0;
@@ -178,3 +217,4 @@ public class RegistroPontoService {
     }
 	
 }
+

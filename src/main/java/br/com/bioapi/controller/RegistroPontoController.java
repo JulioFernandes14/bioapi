@@ -65,5 +65,9 @@ public class RegistroPontoController {
 		return ResponseEntity.ok(registroPontoService.getSaldoMensalByFuncId(resumoPontoRequestDto.getMes(), resumoPontoRequestDto.getAno(), resumoPontoRequestDto.getFuncionarioId()));
 	}
 	
+	@GetMapping("/media-horas")
+	public ResponseEntity<String> getMediaHorasSemanaAtual() throws Exception {
+		return ResponseEntity.ok(registroPontoService.getMediaHorasSemanaAtual());
+	}
 	
 }
