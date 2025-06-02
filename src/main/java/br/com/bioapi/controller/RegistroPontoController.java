@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import br.com.bioapi.dto.RegistroPontoDto;
 import br.com.bioapi.dto.ResumoPontoDto;
 import br.com.bioapi.dto.ResumoPontoRequestDto;
+import br.com.bioapi.dto.RelatorioSaldoMensalDto;
 import br.com.bioapi.model.RegistroPonto;
 import br.com.bioapi.service.RegistroPontoService;
 
@@ -68,6 +69,23 @@ public class RegistroPontoController {
 	@GetMapping("/media-horas")
 	public ResponseEntity<String> getMediaHorasSemanaAtual() throws Exception {
 		return ResponseEntity.ok(registroPontoService.getMediaHorasSemanaAtual());
+	}
+	
+	@GetMapping("/atrasos")
+	public ResponseEntity<Long> contarAtrasosSemanaAtual() throws Exception {
+		return ResponseEntity.ok(registroPontoService.contarAtrasosSemanaAtual());
+	}
+	
+	@GetMapping("/relatorio-saldo-mensal/{mes}/{ano}")
+	public ResponseEntity<RelatorioSaldoMensalDto> getRelatorioSaldoMensal(
+			@PathVariable int mes,
+			@PathVariable int ano) throws Exception {
+		try {
+			RelatorioSaldoMensalDto relatorio = registroPontoService.getRelatorioSaldoMensal(mes, ano);
+			return ResponseEntity.ok(relatorio);
+		} catch (Exception e) {
+			throw new Exception("Erro ao buscar relatório de saldo mensal: " + e);
+		}
 	}
 	
 }

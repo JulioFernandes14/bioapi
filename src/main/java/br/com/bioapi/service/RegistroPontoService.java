@@ -5,7 +5,9 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import br.com.bioapi.dto.RegistroPontoDto;
 import br.com.bioapi.dto.ResumoPontoDto;
+import br.com.bioapi.dto.RelatorioSaldoMensalDto;
 import br.com.bioapi.model.Funcionario;
 import br.com.bioapi.model.RegistroPonto;
 import br.com.bioapi.model.Status;
@@ -138,29 +141,49 @@ public class RegistroPontoService {
 	}
 	
 	public String getSaldoMensalByFuncId(int mes, int ano, Long funcionarioId) throws Exception {
-		
 		List<ResumoPontoDto> listaPontos = getResumeByFuncId(mes, ano, funcionarioId);
 		
 		Duration saldoTotal = Duration.ZERO;
-        
-        for (ResumoPontoDto resumoPonto: listaPontos) {
-        	
-        	DayOfWeek diaSemana = resumoPonto.getData().getDayOfWeek();
-            if (diaSemana == DayOfWeek.MONDAY) continue;
-            
-            LocalTime horasTrabalhadas = LocalTime.parse(resumoPonto.getHorasTrabalhadas());
-            Duration duracaoTrabalhada = Duration.ofHours(horasTrabalhadas.getHour())
-                                                  .plusMinutes(horasTrabalhadas.getMinute())
-                                                  .plusSeconds(horasTrabalhadas.getSecond());
-
-            Duration cargaEsperada = Duration.ofHours(8);
-            Duration saldoDoDia = duracaoTrabalhada.minus(cargaEsperada);
-
-            saldoTotal = saldoTotal.plus(saldoDoDia);
-        }
-        
-        return formatarDuration(saldoTotal);
 		
+		// Obtém o primeiro dia do mês e a data atual
+		LocalDate primeiroDia = LocalDate.of(ano, mes, 1);
+		LocalDate dataAtual = LocalDate.now();
+		
+		// Se o mês/ano for futuro, usa a data atual como limite
+		LocalDate ultimoDia = (dataAtual.getYear() == ano && dataAtual.getMonthValue() == mes) 
+			? dataAtual 
+			: primeiroDia.plusMonths(1).minusDays(1);
+		
+		// Conta os dias úteis até a data atual (de terça a domingo)
+		long diasUteis = 0;
+		for (LocalDate data = primeiroDia; !data.isAfter(ultimoDia); data = data.plusDays(1)) {
+			DayOfWeek diaSemana = data.getDayOfWeek();
+			if (diaSemana != DayOfWeek.MONDAY) { // Considera todos os dias exceto segunda
+				diasUteis++;
+			}
+		}
+		
+		// Calcula o total de horas esperadas no mês até a data atual
+		Duration cargaHorariaEsperada = Duration.ofHours(8 * diasUteis);
+		
+		// Calcula as horas trabalhadas
+		for (ResumoPontoDto resumoPonto: listaPontos) {
+			DayOfWeek diaSemana = resumoPonto.getData().getDayOfWeek();
+			if (diaSemana == DayOfWeek.MONDAY) continue; // Ignora registros de segunda-feira
+			
+			if (resumoPonto.getHorasTrabalhadas() != null && !resumoPonto.getHorasTrabalhadas().isEmpty()) {
+				LocalTime horasTrabalhadas = LocalTime.parse(resumoPonto.getHorasTrabalhadas());
+				Duration duracaoTrabalhada = Duration.ofHours(horasTrabalhadas.getHour())
+												  .plusMinutes(horasTrabalhadas.getMinute())
+												  .plusSeconds(horasTrabalhadas.getSecond());
+				saldoTotal = saldoTotal.plus(duracaoTrabalhada);
+			}
+		}
+		
+		// Calcula o saldo final (horas trabalhadas - horas esperadas)
+		Duration saldoFinal = saldoTotal.minus(cargaHorariaEsperada);
+		
+		return formatarDuration(saldoFinal);
 	}
 	
 	public String getMediaHorasSemanaAtual() throws Exception {
@@ -173,7 +196,9 @@ public class RegistroPontoService {
 			}
 			
 			Duration totalHoras = Duration.ZERO;
-			int totalDias = 0;
+			int diasTrabalhados = 0;
+			
+			Map<LocalDate, Duration> horasPorDia = new HashMap<>();
 			
 			for (ResumoPontoDto resumoPonto: listaPontos) {
 				DayOfWeek diaSemana = resumoPonto.getData().getDayOfWeek();
@@ -185,20 +210,35 @@ public class RegistroPontoService {
 														.plusMinutes(horasTrabalhadas.getMinute())
 														.plusSeconds(horasTrabalhadas.getSecond());
 					
-					totalHoras = totalHoras.plus(duracaoTrabalhada);
-					totalDias++;
+					horasPorDia.merge(resumoPonto.getData(), duracaoTrabalhada, Duration::plus);
 				}
 			}
 			
-			if (totalDias == 0) {
+			for (Duration horasDoDia : horasPorDia.values()) {
+				totalHoras = totalHoras.plus(horasDoDia);
+				diasTrabalhados++;
+			}
+			
+			if (diasTrabalhados == 0) {
 				return "00:00:00";
 			}
 			
-			Duration mediaHoras = totalHoras.dividedBy(totalDias).dividedBy(totalFuncionarios);
-			return formatarDuration(mediaHoras);
+		
+			Duration mediaDiaria = totalHoras.dividedBy(diasTrabalhados);
+			Duration mediaPorFuncionario = mediaDiaria.dividedBy(totalFuncionarios);
+			
+			return formatarDuration(mediaPorFuncionario);
 			
 		} catch (Exception e) {
 			throw new Exception("Erro ao calcular média de horas da semana: " + e);
+		}
+	}
+	
+	public Long contarAtrasosSemanaAtual() throws Exception {
+		try {
+			return registroPontoRepository.contarAtrasosSemanaAtual();
+		} catch (Exception e) {
+			throw new Exception("Erro ao contar atrasos da semana: " + e);
 		}
 	}
 	
@@ -216,5 +256,35 @@ public class RegistroPontoService {
                 horas, minutos, segundos);
     }
 	
+	public RelatorioSaldoMensalDto getRelatorioSaldoMensal(int mes, int ano) throws Exception {
+		try {
+			List<Funcionario> funcionarios = funcionarioService.findAllService();
+			RelatorioSaldoMensalDto relatorio = new RelatorioSaldoMensalDto();
+			relatorio.setTotalFuncionarios(funcionarios.size());
+			
+			for (Funcionario funcionario : funcionarios) {
+				String saldoMensal = getSaldoMensalByFuncId(mes, ano, funcionario.getId());
+				
+				String[] partes = saldoMensal.split(":");
+				Duration saldo = Duration.ofHours(Long.parseLong(partes[0]))
+									  .plusMinutes(Long.parseLong(partes[1]))
+									  .plusSeconds(Long.parseLong(partes[2]));
+				
+				if (saldo.isNegative()) {
+					relatorio.setQuantidadeSaldoNegativo(relatorio.getQuantidadeSaldoNegativo() + 1);
+				} else if (saldo.isZero()) {
+					relatorio.setQuantidadeSaldoZerado(relatorio.getQuantidadeSaldoZerado() + 1);
+				} else {
+					relatorio.setQuantidadeSaldoPositivo(relatorio.getQuantidadeSaldoPositivo() + 1);
+				}
+			}
+			
+			return relatorio;
+		} catch (Exception e) {
+			throw new Exception("Erro ao gerar relatório de saldo mensal: " + e);
+		}
+	}
+	
 }
+
 

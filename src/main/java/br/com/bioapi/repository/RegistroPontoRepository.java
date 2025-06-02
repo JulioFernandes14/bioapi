@@ -73,4 +73,14 @@ public interface RegistroPontoRepository  extends JpaRepository<RegistroPonto, L
 	            data
 	        """, nativeQuery = true)
 	List<ResumoPontoDto> buscarResumoDaSemanaAtual();
+	
+	@Query(value = """
+	        SELECT COUNT(*)
+	        FROM registro_ponto
+	        WHERE tipo = 'ENTRADA'
+	        AND TIME(hora) > '08:10:00'
+	        AND hora >= DATE_SUB(CURRENT_DATE, INTERVAL WEEKDAY(CURRENT_DATE) DAY)
+	        AND hora < DATE_ADD(DATE_SUB(CURRENT_DATE, INTERVAL WEEKDAY(CURRENT_DATE) DAY), INTERVAL 7 DAY)
+	        """, nativeQuery = true)
+	Long contarAtrasosSemanaAtual();
 }
