@@ -83,4 +83,49 @@ public interface RegistroPontoRepository  extends JpaRepository<RegistroPonto, L
 	        AND hora < DATE_ADD(DATE_SUB(CURRENT_DATE, INTERVAL WEEKDAY(CURRENT_DATE) DAY), INTERVAL 7 DAY)
 	        """, nativeQuery = true)
 	Long contarAtrasosSemanaAtual();
+	
+	@Query(value = """
+	        SELECT
+	            DATE(hora) AS data,
+	            MAX(CASE tipo WHEN 'ENTRADA' THEN TIME(hora) END) AS entrada,
+	            MAX(CASE tipo WHEN 'PAUSA' THEN TIME(hora) END) AS pausa,
+	            MAX(CASE tipo WHEN 'RETORNO' THEN TIME(hora) END) AS retorno,
+	            MAX(CASE tipo WHEN 'SAIDA' THEN TIME(hora) END) AS saida,
+	            SEC_TO_TIME(
+	                TIMESTAMPDIFF(SECOND, 
+	                    MAX(CASE tipo WHEN 'ENTRADA' THEN hora END),
+	                    MAX(CASE tipo WHEN 'PAUSA' THEN hora END)
+	                ) +
+	                TIMESTAMPDIFF(SECOND, 
+	                    MAX(CASE tipo WHEN 'RETORNO' THEN hora END),
+	                    MAX(CASE tipo WHEN 'SAIDA' THEN hora END)
+	                )
+	            ) AS horasTrabalhadas
+	        FROM
+	            registro_ponto
+	        WHERE
+	            funcionario_id = :funcId
+	            AND hora BETWEEN :dataInicio AND :dataFim
+	        GROUP BY
+	            DATE(hora)
+	        ORDER BY
+	            data
+	        """, nativeQuery = true)
+	List<ResumoPontoDto> buscarResumoPorFuncionarioEData(
+		@Param("funcId") Long funcionarioId,
+		@Param("dataInicio") LocalDateTime dataInicio,
+		@Param("dataFim") LocalDateTime dataFim
+	);
+	
+	@Query(value = """
+	        SELECT COUNT(*)
+	        FROM registro_ponto
+	        WHERE funcionario_id = :funcId
+	        AND hora BETWEEN :dataInicio AND :dataFim
+	        """, nativeQuery = true)
+	Long contarPontosPorPeriodo(
+		@Param("funcId") Long funcionarioId,
+		@Param("dataInicio") LocalDateTime dataInicio,
+		@Param("dataFim") LocalDateTime dataFim
+	);
 }

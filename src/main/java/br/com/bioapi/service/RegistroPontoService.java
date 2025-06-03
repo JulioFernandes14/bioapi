@@ -5,17 +5,22 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import br.com.bioapi.dto.FuncionarioHorasExtrasDto;
+import br.com.bioapi.dto.HorasPorDiaDto;
+import br.com.bioapi.dto.PontosPorSemanaDto;
 import br.com.bioapi.dto.RegistroPontoDto;
-import br.com.bioapi.dto.ResumoPontoDto;
 import br.com.bioapi.dto.RelatorioSaldoMensalDto;
+import br.com.bioapi.dto.ResumoPontoDto;
 import br.com.bioapi.model.Funcionario;
 import br.com.bioapi.model.RegistroPonto;
 import br.com.bioapi.model.Status;
@@ -140,50 +145,62 @@ public class RegistroPontoService {
 		}
 	}
 	
-	public String getSaldoMensalByFuncId(int mes, int ano, Long funcionarioId) throws Exception {
-		List<ResumoPontoDto> listaPontos = getResumeByFuncId(mes, ano, funcionarioId);
-		
-		Duration saldoTotal = Duration.ZERO;
-		
-		// Obtém o primeiro dia do mês e a data atual
-		LocalDate primeiroDia = LocalDate.of(ano, mes, 1);
-		LocalDate dataAtual = LocalDate.now();
-		
-		// Se o mês/ano for futuro, usa a data atual como limite
-		LocalDate ultimoDia = (dataAtual.getYear() == ano && dataAtual.getMonthValue() == mes) 
-			? dataAtual 
-			: primeiroDia.plusMonths(1).minusDays(1);
-		
-		// Conta os dias úteis até a data atual (de terça a domingo)
-		long diasUteis = 0;
-		for (LocalDate data = primeiroDia; !data.isAfter(ultimoDia); data = data.plusDays(1)) {
-			DayOfWeek diaSemana = data.getDayOfWeek();
-			if (diaSemana != DayOfWeek.MONDAY) { // Considera todos os dias exceto segunda
-				diasUteis++;
-			}
-		}
-		
-		// Calcula o total de horas esperadas no mês até a data atual
-		Duration cargaHorariaEsperada = Duration.ofHours(8 * diasUteis);
-		
-		// Calcula as horas trabalhadas
-		for (ResumoPontoDto resumoPonto: listaPontos) {
-			DayOfWeek diaSemana = resumoPonto.getData().getDayOfWeek();
-			if (diaSemana == DayOfWeek.MONDAY) continue; // Ignora registros de segunda-feira
+	public String getSaldoSemanalByFuncId(Long funcionarioId) throws Exception {
+		try {
+			funcionarioService.findByIdService(funcionarioId);
 			
-			if (resumoPonto.getHorasTrabalhadas() != null && !resumoPonto.getHorasTrabalhadas().isEmpty()) {
-				LocalTime horasTrabalhadas = LocalTime.parse(resumoPonto.getHorasTrabalhadas());
-				Duration duracaoTrabalhada = Duration.ofHours(horasTrabalhadas.getHour())
-												  .plusMinutes(horasTrabalhadas.getMinute())
-												  .plusSeconds(horasTrabalhadas.getSecond());
-				saldoTotal = saldoTotal.plus(duracaoTrabalhada);
+			// Obtém a data atual
+			LocalDate dataAtual = LocalDate.now();
+			
+			// Encontra a terça-feira da semana atual
+			LocalDate tercaFeira = dataAtual;
+			while (tercaFeira.getDayOfWeek() != DayOfWeek.TUESDAY) {
+				tercaFeira = tercaFeira.minusDays(1);
 			}
+			
+			// Obtém os registros da semana atual
+			List<ResumoPontoDto> listaPontos = registroPontoRepository.buscarResumoPorFuncionarioEData(
+				funcionarioId, 
+				tercaFeira.atStartOfDay(), 
+				dataAtual.plusDays(1).atStartOfDay()
+			);
+			
+			Duration saldoTotal = Duration.ZERO;
+			
+			// Conta os dias úteis da semana (terça a domingo)
+			long diasUteis = 0;
+			for (LocalDate data = tercaFeira; !data.isAfter(dataAtual); data = data.plusDays(1)) {
+				DayOfWeek diaSemana = data.getDayOfWeek();
+				if (diaSemana != DayOfWeek.MONDAY) {
+					diasUteis++;
+				}
+			}
+			
+			// Calcula o total de horas esperadas na semana até a data atual
+			Duration cargaHorariaEsperada = Duration.ofHours(8 * diasUteis);
+			
+			// Calcula as horas trabalhadas
+			for (ResumoPontoDto resumoPonto: listaPontos) {
+				DayOfWeek diaSemana = resumoPonto.getData().getDayOfWeek();
+				if (diaSemana == DayOfWeek.MONDAY) continue;
+				
+				if (resumoPonto.getHorasTrabalhadas() != null && !resumoPonto.getHorasTrabalhadas().isEmpty()) {
+					LocalTime horasTrabalhadas = LocalTime.parse(resumoPonto.getHorasTrabalhadas());
+					Duration duracaoTrabalhada = Duration.ofHours(horasTrabalhadas.getHour())
+													  .plusMinutes(horasTrabalhadas.getMinute())
+													  .plusSeconds(horasTrabalhadas.getSecond());
+					saldoTotal = saldoTotal.plus(duracaoTrabalhada);
+				}
+			}
+			
+			// Calcula o saldo final (horas trabalhadas - horas esperadas)
+			Duration saldoFinal = saldoTotal.minus(cargaHorariaEsperada);
+			
+			return formatarDuration(saldoFinal);
+			
+		} catch (Exception e) {
+			throw new Exception("Erro ao calcular saldo semanal do funcionário: " + e);
 		}
-		
-		// Calcula o saldo final (horas trabalhadas - horas esperadas)
-		Duration saldoFinal = saldoTotal.minus(cargaHorariaEsperada);
-		
-		return formatarDuration(saldoFinal);
 	}
 	
 	public String getMediaHorasSemanaAtual() throws Exception {
@@ -263,7 +280,7 @@ public class RegistroPontoService {
 			relatorio.setTotalFuncionarios(funcionarios.size());
 			
 			for (Funcionario funcionario : funcionarios) {
-				String saldoMensal = getSaldoMensalByFuncId(mes, ano, funcionario.getId());
+				String saldoMensal = getSaldoSemanalByFuncId(funcionario.getId());
 				
 				String[] partes = saldoMensal.split(":");
 				Duration saldo = Duration.ofHours(Long.parseLong(partes[0]))
@@ -282,6 +299,298 @@ public class RegistroPontoService {
 			return relatorio;
 		} catch (Exception e) {
 			throw new Exception("Erro ao gerar relatório de saldo mensal: " + e);
+		}
+	}
+	
+	public String getHorasTrabalhadasSemanaAtual(Long funcionarioId) throws Exception {
+		try {
+			funcionarioService.findByIdService(funcionarioId);
+			
+			// Obtém a data atual
+			LocalDate dataAtual = LocalDate.now();
+			
+			// Encontra a terça-feira da semana atual
+			LocalDate tercaFeira = dataAtual;
+			while (tercaFeira.getDayOfWeek() != DayOfWeek.TUESDAY) {
+				tercaFeira = tercaFeira.minusDays(1);
+			}
+			
+			// Obtém os registros da semana atual
+			List<ResumoPontoDto> listaPontos = registroPontoRepository.buscarResumoPorFuncionarioEData(
+				funcionarioId, 
+				tercaFeira.atStartOfDay(), 
+				dataAtual.plusDays(1).atStartOfDay()
+			);
+			
+			Duration totalHoras = Duration.ZERO;
+			
+			// Calcula as horas trabalhadas
+			for (ResumoPontoDto resumoPonto: listaPontos) {
+				DayOfWeek diaSemana = resumoPonto.getData().getDayOfWeek();
+				if (diaSemana == DayOfWeek.MONDAY) continue;
+				
+				if (resumoPonto.getHorasTrabalhadas() != null && !resumoPonto.getHorasTrabalhadas().isEmpty()) {
+					LocalTime horasTrabalhadas = LocalTime.parse(resumoPonto.getHorasTrabalhadas());
+					Duration duracaoTrabalhada = Duration.ofHours(horasTrabalhadas.getHour())
+													  .plusMinutes(horasTrabalhadas.getMinute())
+													  .plusSeconds(horasTrabalhadas.getSecond());
+					totalHoras = totalHoras.plus(duracaoTrabalhada);
+				}
+			}
+			
+			return formatarDuration(totalHoras);
+			
+		} catch (Exception e) {
+			throw new Exception("Erro ao calcular horas trabalhadas da semana: " + e);
+		}
+	}
+	
+	public Long contarFaltasSemanaAtual(Long funcionarioId) throws Exception {
+		try {
+			funcionarioService.findByIdService(funcionarioId);
+			
+			// Obtém a data atual
+			LocalDate dataAtual = LocalDate.now();
+			
+			// Encontra a terça-feira da semana atual
+			LocalDate tercaFeira = dataAtual;
+			while (tercaFeira.getDayOfWeek() != DayOfWeek.TUESDAY) {
+				tercaFeira = tercaFeira.minusDays(1);
+			}
+			
+			// Obtém os registros da semana atual
+			List<ResumoPontoDto> listaPontos = registroPontoRepository.buscarResumoPorFuncionarioEData(
+				funcionarioId, 
+				tercaFeira.atStartOfDay(), 
+				dataAtual.plusDays(1).atStartOfDay()
+			);
+			
+			// Conta os dias úteis da semana (terça a domingo)
+			long diasUteis = 0;
+			for (LocalDate data = tercaFeira; !data.isAfter(dataAtual); data = data.plusDays(1)) {
+				DayOfWeek diaSemana = data.getDayOfWeek();
+				if (diaSemana != DayOfWeek.MONDAY) {
+					diasUteis++;
+				}
+			}
+			
+			// Conta os dias com registro
+			long diasComRegistro = 0;
+			for (ResumoPontoDto resumoPonto: listaPontos) {
+				DayOfWeek diaSemana = resumoPonto.getData().getDayOfWeek();
+				if (diaSemana == DayOfWeek.MONDAY) continue;
+				
+				if (resumoPonto.getHorasTrabalhadas() != null && !resumoPonto.getHorasTrabalhadas().isEmpty()) {
+					diasComRegistro++;
+				}
+			}
+			
+			// Retorna a diferença entre dias úteis e dias com registro
+			return diasUteis - diasComRegistro;
+			
+		} catch (Exception e) {
+			throw new Exception("Erro ao calcular faltas da semana: " + e);
+		}
+	}
+	
+	public List<PontosPorSemanaDto> getPontosPorSemanaMesAtual(Long funcionarioId) throws Exception {
+		try {
+			funcionarioService.findByIdService(funcionarioId);
+			
+			LocalDate dataAtual = LocalDate.now();
+			LocalDate primeiroDiaMes = dataAtual.withDayOfMonth(1);
+			LocalDate ultimoDiaMes = dataAtual.withDayOfMonth(dataAtual.lengthOfMonth());
+			
+			List<PontosPorSemanaDto> resultado = new ArrayList<>();
+			
+			// Calcula as 4 semanas do mês
+			for (int semana = 1; semana <= 4; semana++) {
+				LocalDate inicioSemana = primeiroDiaMes.plusDays((semana - 1) * 7);
+				LocalDate fimSemana = inicioSemana.plusDays(6);
+				
+				// Se a semana começa depois do último dia do mês, não precisa processar
+				if (inicioSemana.isAfter(ultimoDiaMes)) {
+					resultado.add(new PontosPorSemanaDto("Semana " + semana, 0L));
+					continue;
+				}
+				
+				// Ajusta o fim da semana se ultrapassar o último dia do mês
+				if (fimSemana.isAfter(ultimoDiaMes)) {
+					fimSemana = ultimoDiaMes;
+				}
+				
+				// Se a semana atual ainda não chegou, retorna 0 pontos
+				if (inicioSemana.isAfter(dataAtual)) {
+					resultado.add(new PontosPorSemanaDto("Semana " + semana, 0L));
+					continue;
+				}
+				
+				// Busca os registros da semana
+				Long quantidadePontos = registroPontoRepository.contarPontosPorPeriodo(
+					funcionarioId,
+					inicioSemana.atStartOfDay(),
+					fimSemana.plusDays(1).atStartOfDay()
+				);
+				
+				resultado.add(new PontosPorSemanaDto("Semana " + semana, quantidadePontos));
+			}
+			
+			return resultado;
+			
+		} catch (Exception e) {
+			throw new Exception("Erro ao calcular pontos por semana do mês: " + e);
+		}
+	}
+	
+	public List<HorasPorDiaDto> getHorasPorDiaSemanaAtual(Long funcionarioId) throws Exception {
+		try {
+			funcionarioService.findByIdService(funcionarioId);
+			
+			// Obtém a data atual
+			LocalDate dataAtual = LocalDate.now();
+			
+			// Encontra a terça-feira da semana atual
+			LocalDate tercaFeira = dataAtual;
+			while (tercaFeira.getDayOfWeek() != DayOfWeek.TUESDAY) {
+				tercaFeira = tercaFeira.minusDays(1);
+			}
+			
+			// Obtém os registros da semana atual
+			List<ResumoPontoDto> listaPontos = registroPontoRepository.buscarResumoPorFuncionarioEData(
+				funcionarioId, 
+				tercaFeira.atStartOfDay(), 
+				dataAtual.plusDays(1).atStartOfDay()
+			);
+			
+			List<HorasPorDiaDto> resultado = new ArrayList<>();
+			Map<DayOfWeek, String> horasPorDia = new HashMap<>();
+			
+			// Inicializa o mapa com 0 horas para cada dia
+			for (DayOfWeek dia : DayOfWeek.values()) {
+				if (dia != DayOfWeek.MONDAY) {
+					horasPorDia.put(dia, "00:00:00");
+				}
+			}
+			
+			// Processa os registros
+			for (ResumoPontoDto resumoPonto: listaPontos) {
+				DayOfWeek diaSemana = resumoPonto.getData().getDayOfWeek();
+				if (diaSemana == DayOfWeek.MONDAY) continue;
+				
+				if (resumoPonto.getHorasTrabalhadas() != null && !resumoPonto.getHorasTrabalhadas().isEmpty()) {
+					horasPorDia.put(diaSemana, resumoPonto.getHorasTrabalhadas());
+				}
+			}
+			
+			// Converte o mapa para a lista de DTOs
+			for (DayOfWeek dia : DayOfWeek.values()) {
+				if (dia != DayOfWeek.MONDAY) {
+					String nomeDia = "";
+					switch (dia) {
+						case TUESDAY: nomeDia = "TERÇA"; break;
+						case WEDNESDAY: nomeDia = "QUARTA"; break;
+						case THURSDAY: nomeDia = "QUINTA"; break;
+						case FRIDAY: nomeDia = "SEXTA"; break;
+						case SATURDAY: nomeDia = "SÁBADO"; break;
+						case SUNDAY: nomeDia = "DOMINGO"; break;
+						default: continue;
+					}
+					resultado.add(new HorasPorDiaDto(nomeDia, horasPorDia.get(dia)));
+				}
+			}
+			
+			return resultado;
+			
+		} catch (Exception e) {
+			throw new Exception("Erro ao calcular horas por dia da semana: " + e);
+		}
+	}
+	
+	public List<FuncionarioHorasExtrasDto> getTop5FuncionariosHorasExtras() throws Exception {
+		try {
+			// Obtém a data atual
+			LocalDate dataAtual = LocalDate.now();
+			
+			// Encontra a terça-feira da semana atual
+			LocalDate tercaFeira = dataAtual;
+			while (tercaFeira.getDayOfWeek() != DayOfWeek.TUESDAY) {
+				tercaFeira = tercaFeira.minusDays(1);
+			}
+			
+			// Obtém todos os funcionários
+			List<Funcionario> funcionarios = funcionarioService.findAllService();
+			List<FuncionarioHorasExtrasDto> resultado = new ArrayList<>();
+			
+			// Para cada funcionário, calcula as horas extras
+			for (Funcionario funcionario : funcionarios) {
+				// Obtém os registros da semana atual
+				List<ResumoPontoDto> listaPontos = registroPontoRepository.buscarResumoPorFuncionarioEData(
+					funcionario.getId(), 
+					tercaFeira.atStartOfDay(), 
+					dataAtual.plusDays(1).atStartOfDay()
+				);
+				
+				Duration totalHoras = Duration.ZERO;
+				
+				// Conta os dias úteis da semana (terça a domingo)
+				long diasUteis = 0;
+				for (LocalDate data = tercaFeira; !data.isAfter(dataAtual); data = data.plusDays(1)) {
+					DayOfWeek diaSemana = data.getDayOfWeek();
+					if (diaSemana != DayOfWeek.MONDAY) {
+						diasUteis++;
+					}
+				}
+				
+				// Calcula o total de horas esperadas na semana até a data atual
+				Duration cargaHorariaEsperada = Duration.ofHours(8 * diasUteis);
+				
+				// Calcula as horas trabalhadas
+				for (ResumoPontoDto resumoPonto: listaPontos) {
+					DayOfWeek diaSemana = resumoPonto.getData().getDayOfWeek();
+					if (diaSemana == DayOfWeek.MONDAY) continue;
+					
+					if (resumoPonto.getHorasTrabalhadas() != null && !resumoPonto.getHorasTrabalhadas().isEmpty()) {
+						LocalTime horasTrabalhadas = LocalTime.parse(resumoPonto.getHorasTrabalhadas());
+						Duration duracaoTrabalhada = Duration.ofHours(horasTrabalhadas.getHour())
+														  .plusMinutes(horasTrabalhadas.getMinute())
+														  .plusSeconds(horasTrabalhadas.getSecond());
+						totalHoras = totalHoras.plus(duracaoTrabalhada);
+					}
+				}
+				
+				// Calcula as horas extras (horas trabalhadas - horas esperadas)
+				Duration horasExtras = totalHoras.minus(cargaHorariaEsperada);
+				
+				// Só adiciona se tiver horas extras positivas
+				if (horasExtras.compareTo(Duration.ZERO) > 0) {
+					resultado.add(new FuncionarioHorasExtrasDto(
+						funcionario.getId(),
+						funcionario.getNome(),
+						formatarDuration(horasExtras)
+					));
+				}
+			}
+			
+			// Ordena por horas extras (maior para menor) e pega os 5 primeiros
+			resultado.sort((a, b) -> {
+				String[] partesA = a.getHorasExtras().split(":");
+				String[] partesB = b.getHorasExtras().split(":");
+				
+				Duration horasA = Duration.ofHours(Long.parseLong(partesA[0]))
+									   .plusMinutes(Long.parseLong(partesA[1]))
+									   .plusSeconds(Long.parseLong(partesA[2]));
+				
+				Duration horasB = Duration.ofHours(Long.parseLong(partesB[0]))
+									   .plusMinutes(Long.parseLong(partesB[1]))
+									   .plusSeconds(Long.parseLong(partesB[2]));
+				
+				return horasB.compareTo(horasA);
+			});
+			
+			return resultado.stream().limit(5).collect(Collectors.toList());
+			
+		} catch (Exception e) {
+			throw new Exception("Erro ao calcular top 5 funcionários com horas extras: " + e);
 		}
 	}
 	

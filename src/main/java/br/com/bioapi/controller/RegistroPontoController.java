@@ -18,6 +18,9 @@ import br.com.bioapi.dto.RegistroPontoDto;
 import br.com.bioapi.dto.ResumoPontoDto;
 import br.com.bioapi.dto.ResumoPontoRequestDto;
 import br.com.bioapi.dto.RelatorioSaldoMensalDto;
+import br.com.bioapi.dto.PontosPorSemanaDto;
+import br.com.bioapi.dto.HorasPorDiaDto;
+import br.com.bioapi.dto.FuncionarioHorasExtrasDto;
 import br.com.bioapi.model.RegistroPonto;
 import br.com.bioapi.service.RegistroPontoService;
 
@@ -62,8 +65,8 @@ public class RegistroPontoController {
 	}
 	
 	@GetMapping("saldo-horas") 
-	public ResponseEntity<String> getSaldoMensalByFuncId(@RequestBody ResumoPontoRequestDto resumoPontoRequestDto) throws Exception {
-		return ResponseEntity.ok(registroPontoService.getSaldoMensalByFuncId(resumoPontoRequestDto.getMes(), resumoPontoRequestDto.getAno(), resumoPontoRequestDto.getFuncionarioId()));
+	public ResponseEntity<String> getSaldoSemanalByFuncId(@RequestBody ResumoPontoRequestDto resumoPontoRequestDto) throws Exception {
+		return ResponseEntity.ok(registroPontoService.getSaldoSemanalByFuncId(resumoPontoRequestDto.getFuncionarioId()));
 	}
 	
 	@GetMapping("/media-horas")
@@ -86,6 +89,31 @@ public class RegistroPontoController {
 		} catch (Exception e) {
 			throw new Exception("Erro ao buscar relatório de saldo mensal: " + e);
 		}
+	}
+	
+	@GetMapping("/horas-trabalhadas-semana/{funcionarioId}")
+	public ResponseEntity<String> getHorasTrabalhadasSemanaAtual(@PathVariable Long funcionarioId) throws Exception {
+		return ResponseEntity.ok(registroPontoService.getHorasTrabalhadasSemanaAtual(funcionarioId));
+	}
+	
+	@GetMapping("/faltas-semana/{funcionarioId}")
+	public ResponseEntity<Long> contarFaltasSemanaAtual(@PathVariable Long funcionarioId) throws Exception {
+		return ResponseEntity.ok(registroPontoService.contarFaltasSemanaAtual(funcionarioId));
+	}
+	
+	@GetMapping("/pontos-por-semana/{funcionarioId}")
+	public ResponseEntity<List<PontosPorSemanaDto>> getPontosPorSemanaMesAtual(@PathVariable Long funcionarioId) throws Exception {
+		return ResponseEntity.ok(registroPontoService.getPontosPorSemanaMesAtual(funcionarioId));
+	}
+	
+	@GetMapping("/horas-por-dia/{funcionarioId}")
+	public ResponseEntity<List<HorasPorDiaDto>> getHorasPorDiaSemanaAtual(@PathVariable Long funcionarioId) throws Exception {
+		return ResponseEntity.ok(registroPontoService.getHorasPorDiaSemanaAtual(funcionarioId));
+	}
+	
+	@GetMapping("/top5-horas-extras")
+	public ResponseEntity<List<FuncionarioHorasExtrasDto>> getTop5FuncionariosHorasExtras() throws Exception {
+		return ResponseEntity.ok(registroPontoService.getTop5FuncionariosHorasExtras());
 	}
 	
 }
