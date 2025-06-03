@@ -14,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.Column;
 
 @Entity
 public class Funcionario {
@@ -24,6 +25,9 @@ public class Funcionario {
 	
 	private String nome;
 	private String cargo;
+	
+	@Column(name = "url_foto")
+	private String urlFoto;
 	
 	@ManyToOne
 	@JoinColumn(name = "setor_id")
@@ -120,6 +124,14 @@ public class Funcionario {
 	
 	public void setRegistrosP(List<RegistroPonto> registrosP) {
 		this.registrosP = registrosP;
+	}
+	
+	public String getUrlFoto() {
+		return urlFoto;
+	}
+	
+	public void setUrlFoto(String urlFoto) {
+		this.urlFoto = urlFoto;
 	}
 	
 }

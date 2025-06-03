@@ -54,6 +54,7 @@ public class FuncionarioService {
 
 			funcionario.get().setNome(funcionarioDto.getNome());
 			funcionario.get().setCargo(funcionarioDto.getCargo());
+			funcionario.get().setUrlFoto(funcionarioDto.getUrlFoto());
 			Funcionario resp = funcionarioRepository.save(funcionario.get());
 			
 			return resp;

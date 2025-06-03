@@ -10,16 +10,18 @@ public class FuncionarioDto {
 	private String nome;
 	private String cargo;
 	private Long setorId;
+	private String urlFoto;
 	
 	public FuncionarioDto() {
 		// TODO Auto-generated constructor stub
 	}
 
-	public FuncionarioDto(String nome, String cargo, Long setorId) {
+	public FuncionarioDto(String nome, String cargo, Long setorId, String urlFoto) {
 		super();
 		this.nome = nome;
 		this.cargo = cargo;
 		this.setorId = setorId;
+		this.urlFoto = urlFoto;
 	}
 
 	public String getNome() {
@@ -46,6 +48,14 @@ public class FuncionarioDto {
 		this.setorId = setorId;
 	}
 	
+	public String getUrlFoto() {
+		return urlFoto;
+	}
+	
+	public void setUrlFoto(String urlFoto) {
+		this.urlFoto = urlFoto;
+	}
+	
 	public Funcionario toEntity() {
 		Funcionario funcionario = new Funcionario();
 		funcionario.setNome(nome);
@@ -53,6 +63,7 @@ public class FuncionarioDto {
 		funcionario.setStatus(Status.AUSENTE);
 		funcionario.setBiometrias(new ArrayList<>());
 		funcionario.setRegistrosP(new ArrayList<>());
+		funcionario.setUrlFoto(urlFoto);
 		return funcionario;
 	}
 	
