@@ -28,6 +28,7 @@ import br.com.bioapi.service.RegistroPontoService;
 @ResponseBody
 @Controller
 @RequestMapping("/bioapi/registro-ponto")
+@CrossOrigin(origins = "http://localhost:4200")
 public class RegistroPontoController {
 
 	@Autowired

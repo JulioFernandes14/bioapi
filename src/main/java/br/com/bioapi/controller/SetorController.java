@@ -21,6 +21,7 @@ import br.com.bioapi.service.SetorService;
 @ResponseBody
 @Controller
 @RequestMapping("/bioapi/setor")
+@CrossOrigin(origins = "http://localhost:4200")
 public class SetorController {
 
 	@Autowired

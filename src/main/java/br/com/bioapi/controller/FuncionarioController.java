@@ -21,6 +21,7 @@ import br.com.bioapi.service.FuncionarioService;
 @ResponseBody
 @Controller
 @RequestMapping("/bioapi/funcionario")
+@CrossOrigin(origins = "http://localhost:4200")
 public class FuncionarioController {
 
 	@Autowired

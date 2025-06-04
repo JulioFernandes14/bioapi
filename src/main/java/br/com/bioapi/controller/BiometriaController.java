@@ -21,6 +21,7 @@ import br.com.bioapi.service.BiometriaService;
 @ResponseBody
 @Controller
 @RequestMapping("/bioapi/biometria")
+@CrossOrigin(origins = "http://localhost:4200")
 public class BiometriaController {
 
 	@Autowired
